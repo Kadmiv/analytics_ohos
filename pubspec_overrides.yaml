@@ -1,0 +1,20 @@
+# melos_managed_dependency_overrides: analytics_core,app_version,core,core_utils,design_system_app,design_system_core,form,network,shared
+dependency_overrides:
+  analytics_core:
+    path: ../analytics_core
+  app_version:
+    path: ../app_version
+  core:
+    path: ../core
+  core_utils:
+    path: ../core_utils
+  design_system_app:
+    path: ../../flutter_alias/features/design_system_app
+  design_system_core:
+    path: ../design_system_core
+  form:
+    path: ../form
+  network:
+    path: ../network
+  shared:
+    path: ../../flutter_alias/features/shared
