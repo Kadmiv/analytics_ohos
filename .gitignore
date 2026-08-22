@@ -1,0 +1,91 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+*.ipa
+*.lock
+*.zip
+*.freezed.dart
+*.g.dart
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# The .vscode folder contains launch configuration and tasks you configure in
+# VS Code which you may wish to be included in version control, so this line
+# is commented out by default.
+#.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+.lock/
+build/
+
+# Web related
+lib/generated_plugin_registrant.dart
+
+# Exceptions to above rules.
+!/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
+!apps/app_main/android/gradlew
+!apps/app_main/android/gradlew.bat
+!apps/app_main/android/gradle/wrapper/gradle-wrapper.jar
+
+# iOS
+/apps/app_main/ios/fastlane/report.xml
+/apps/app_main/ios/Flutter/.last_build_id
+/apps/app_main/android/fastlane/report.xml
+
+# Quality report
+code-quality-report.json
+
+# test
+test/pages/*/failures/*.png
+
+# Mason
+.mason
+mason-lock.json
+/apps/app_main/ios/build/
+/fastlane/notes.txt
+
+/apps/app_main/fastlane/notes.txt
+/apps/app_main/build/
+/.fvmrc
+/modules/core/.fvmrc
+/modules/shared/.fvmrc
+/.fvm/*
+
+/modules/user_creds_plugin/.fvm/*
+
+# FVM Version Cache
+.fvm/
+/devtools_options.yaml
+
+!/pubspec_overrides.yaml
+
+/lib/res/generated/*
+
+
+# Flutter plugins
+.ios/Flutter/FlutterPluginRegistrant/*
+.ios/Flutter/FlutterPluginRegistrant/Classes/*
+
+# macOS
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
