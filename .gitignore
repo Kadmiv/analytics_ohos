@@ -6,26 +6,29 @@
 *.ipa
 *.lock
 *.zip
-*.freezed.dart
-*.g.dart
 .DS_Store
 .atom/
 .buildlog/
 .history
 .svn/
 
-# IntelliJ related
+# macOS
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+
+# IntelliJ / Android Studio
 *.iml
 *.ipr
 *.iws
 .idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
+# Visual Studio Code
+.vscode/
 
-# Flutter/Dart/Pub related
+# Flutter / Dart / Pub / DevTools
 **/doc/api/
 .dart_tool/
 .flutter-plugins
@@ -35,57 +38,23 @@
 .pub/
 .lock/
 build/
-
-# Web related
-lib/generated_plugin_registrant.dart
-
-# Exceptions to above rules.
-!/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
-!apps/app_main/android/gradlew
-!apps/app_main/android/gradlew.bat
-!apps/app_main/android/gradle/wrapper/gradle-wrapper.jar
-
-# iOS
-/apps/app_main/ios/fastlane/report.xml
-/apps/app_main/ios/Flutter/.last_build_id
-/apps/app_main/android/fastlane/report.xml
-
-# Quality report
-code-quality-report.json
-
-# test
-test/pages/*/failures/*.png
-
-# Mason
-.mason
-mason-lock.json
-/apps/app_main/ios/build/
-/fastlane/notes.txt
-
-/apps/app_main/fastlane/notes.txt
-/apps/app_main/build/
-/.fvmrc
-/modules/core/.fvmrc
-/modules/shared/.fvmrc
-/.fvm/*
-
-/modules/user_creds_plugin/.fvm/*
-
-# FVM Version Cache
+devtools_options.yaml
+**/devtools_options.yaml
 .fvm/
-/devtools_options.yaml
+pubspec_overrides.yaml
+**/pubspec_overrides.yaml
 
-!/pubspec_overrides.yaml
+# Module / Plugin generated platform folders
+.android/
+.ios/
+**/.android/
+**/.ios/
 
-/lib/res/generated/*
-
-
-# Flutter plugins
-.ios/Flutter/FlutterPluginRegistrant/*
-.ios/Flutter/FlutterPluginRegistrant/Classes/*
-
-# macOS
-._*
-.Spotlight-V100
-.Trashes
-.fseventsd
+# Build & code generation
+*.freezed.dart
+*.g.dart
+lib/generated/
+**/lib/generated/
+lib/generated_plugin_registrant.dart
+lib/res/generated/*
+**/lib/res/generated/*
