@@ -1,115 +1,104 @@
 import 'dart:async';
 import 'package:analytics_ohos/src/ohos_analytics_config.dart';
-import 'package:huawei_analytics/huawei_analytics.dart';
+import 'package:flutter/services.dart';
 import 'package:logger/logger.dart';
 
-/// Platform adapter contract for Huawei Analytics Kit (HMS / OHOS).
+/// Platform adapter contract for OpenHarmony / HarmonyOS NEXT native analytics bridge.
 abstract interface class OhosAnalyticsAdapter {
   Future<void> initialize(OhosAnalyticsConfig config);
   Future<void> logEvent(String name, Map<String, Object?> parameters);
   Future<void> setUserId(String? userId);
-  Future<void> setUserProfile(String name, String value);
+  Future<void> setUserProperty(String name, String? value);
   Future<void> setTrackingEnabled(bool enabled);
-  Future<void> setCollectAdsIdEnabled(bool enabled);
   Future<void> registerPushToken(String token);
-  Future<void> clearCachedData();
+  void setMethodCallHandler(Future<dynamic> Function(MethodCall call)? handler);
   Future<void> dispose();
 }
 
-/// Official implementation using [HMSAnalytics] SDK from `huawei_analytics`.
-class HmsAnalyticsSdkAdapter implements OhosAnalyticsAdapter {
-  HmsAnalyticsSdkAdapter({
-    HMSAnalytics? hmsAnalytics,
+/// Default implementation communicating via HarmonyOS ArkTS MethodChannel.
+class DefaultOhosAnalyticsAdapter implements OhosAnalyticsAdapter {
+  DefaultOhosAnalyticsAdapter({
+    MethodChannel? channel,
     Logger? logger,
-  })  : _analytics = hmsAnalytics,
+  })  : _channel = channel ?? const MethodChannel('com.ideas_proj/analytics_ohos'),
         _logger = logger ?? Logger();
 
-  HMSAnalytics? _analytics;
+  final MethodChannel _channel;
   final Logger _logger;
 
   @override
   Future<void> initialize(OhosAnalyticsConfig config) async {
     try {
-      _analytics ??= await HMSAnalytics.getInstance(
-        routePolicy: config.routePolicy ?? '',
-      );
-
-      if (config.isDebug) {
-        await _analytics?.enableLog();
-      }
-
-      _logger.i('HmsAnalyticsSdkAdapter: HMSAnalytics initialized successfully');
-    } catch (e, st) {
-      _logger.w('HmsAnalyticsSdkAdapter: HMSAnalytics init warning/fallback: $e', error: e, stackTrace: st);
+      await _channel.invokeMethod('initialize', {
+        'appId': config.appId,
+        'endpointUrl': config.endpointUrl,
+        'isDebug': config.isDebug,
+        'reportPolicies': config.reportPolicies,
+        'customParameters': config.customParameters,
+      });
+      _logger.i('DefaultOhosAnalyticsAdapter: initialized successfully');
+    } on MissingPluginException {
+      _logger.d('DefaultOhosAnalyticsAdapter: running in dev/stub mode');
+    } catch (e) {
+      _logger.w('DefaultOhosAnalyticsAdapter: initialize warning: $e');
     }
   }
 
   @override
   Future<void> logEvent(String name, Map<String, Object?> parameters) async {
     try {
-      final sanitizedParams = Map<String, dynamic>.from(parameters);
-      await _analytics?.onEvent(name, sanitizedParams);
-    } catch (e) {
-      _logger.w('HmsAnalyticsSdkAdapter: onEvent error: $e');
+      await _channel.invokeMethod('logEvent', {
+        'name': name,
+        'parameters': parameters,
+      });
+    } on MissingPluginException {
+      _logger.d('DefaultOhosAnalyticsAdapter (stub): logEvent "$name" -> $parameters');
     }
   }
 
   @override
   Future<void> setUserId(String? userId) async {
     try {
-      await _analytics?.setUserId(userId);
-    } catch (e) {
-      _logger.w('HmsAnalyticsSdkAdapter: setUserId error: $e');
+      await _channel.invokeMethod('setUserId', {'userId': userId});
+    } on MissingPluginException {
+      _logger.d('DefaultOhosAnalyticsAdapter (stub): setUserId "$userId"');
     }
   }
 
   @override
-  Future<void> setUserProfile(String name, String value) async {
+  Future<void> setUserProperty(String name, String? value) async {
     try {
-      await _analytics?.setUserProfile(name, value);
-    } catch (e) {
-      _logger.w('HmsAnalyticsSdkAdapter: setUserProfile error: $e');
+      await _channel.invokeMethod('setUserProperty', {'name': name, 'value': value});
+    } on MissingPluginException {
+      _logger.d('DefaultOhosAnalyticsAdapter (stub): setUserProperty "$name"="$value"');
     }
   }
 
   @override
   Future<void> setTrackingEnabled(bool enabled) async {
     try {
-      await _analytics?.setAnalyticsEnabled(enabled);
-    } catch (e) {
-      _logger.w('HmsAnalyticsSdkAdapter: setAnalyticsEnabled error: $e');
-    }
-  }
-
-  @override
-  Future<void> setCollectAdsIdEnabled(bool enabled) async {
-    try {
-      await _analytics?.setCollectAdsIdEnabled(enabled);
-    } catch (e) {
-      _logger.w('HmsAnalyticsSdkAdapter: setCollectAdsIdEnabled error: $e');
+      await _channel.invokeMethod('setTrackingEnabled', {'enabled': enabled});
+    } on MissingPluginException {
+      _logger.d('DefaultOhosAnalyticsAdapter (stub): setTrackingEnabled $enabled');
     }
   }
 
   @override
   Future<void> registerPushToken(String token) async {
     try {
-      await _analytics?.setPushToken(token);
-    } catch (e) {
-      _logger.w('HmsAnalyticsSdkAdapter: setPushToken error: $e');
+      await _channel.invokeMethod('registerPushToken', {'token': token});
+    } on MissingPluginException {
+      _logger.d('DefaultOhosAnalyticsAdapter (stub): registerPushToken "$token"');
     }
   }
 
   @override
-  Future<void> clearCachedData() async {
-    try {
-      await _analytics?.clearCachedData();
-    } catch (e) {
-      _logger.w('HmsAnalyticsSdkAdapter: clearCachedData error: $e');
-    }
+  void setMethodCallHandler(Future<dynamic> Function(MethodCall call)? handler) {
+    _channel.setMethodCallHandler(handler);
   }
 
   @override
   Future<void> dispose() async {
-    _analytics = null;
+    _channel.setMethodCallHandler(null);
   }
 }

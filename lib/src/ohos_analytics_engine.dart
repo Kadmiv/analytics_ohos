@@ -2,19 +2,19 @@ import 'dart:async';
 import 'package:analytics_core/analytics_core.dart';
 import 'package:analytics_ohos/src/ohos_analytics_adapter.dart';
 import 'package:analytics_ohos/src/ohos_analytics_config.dart';
+import 'package:flutter/services.dart';
 import 'package:logger/logger.dart';
 
-/// Huawei & OpenHarmony Analytics Engine.
+/// OpenHarmony / HarmonyOS NEXT Analytics Engine.
 ///
-/// Implements [AnalyticsEngine] for Huawei HiAnalytics / OpenHarmony ecosystem
-/// using the official [HMSAnalytics] SDK.
+/// Implements [AnalyticsEngine] for OpenHarmony platforms using native ArkTS bridge.
 class OhosAnalyticsEngine extends BaseAnalyticsEngine {
   OhosAnalyticsEngine({
     OhosAnalyticsConfig? config,
     OhosAnalyticsAdapter? adapter,
     Logger? logger,
   })  : _config = config ?? const OhosAnalyticsConfig(),
-        _adapter = adapter ?? HmsAnalyticsSdkAdapter(logger: logger),
+        _adapter = adapter ?? DefaultOhosAnalyticsAdapter(logger: logger),
         _logger = logger ?? Logger();
 
   final OhosAnalyticsConfig _config;
@@ -29,6 +29,8 @@ class OhosAnalyticsEngine extends BaseAnalyticsEngine {
         AnalyticsCapability.events,
         AnalyticsCapability.userId,
         AnalyticsCapability.userProperties,
+        AnalyticsCapability.deepLinks,
+        AnalyticsCapability.attribution,
         AnalyticsCapability.genericRevenue,
         AnalyticsCapability.purchaseRevenue,
         AnalyticsCapability.adRevenue,
@@ -43,9 +45,10 @@ class OhosAnalyticsEngine extends BaseAnalyticsEngine {
       return;
     }
     state = AnalyticsEngineState.initializing;
-    _logger.i('OhosAnalyticsEngine: Initializing Huawei Analytics Kit');
+    _logger.i('OhosAnalyticsEngine: Initializing OpenHarmony Analytics');
 
     try {
+      _adapter.setMethodCallHandler(_handleNativeMethodCall);
       await _adapter.initialize(_config);
       state = AnalyticsEngineState.initialized;
       _logger.i('OhosAnalyticsEngine: Initialized successfully');
@@ -81,11 +84,11 @@ class OhosAnalyticsEngine extends BaseAnalyticsEngine {
         AnalyticsEvent(
           name: revenue.eventName,
           parameters: {
-            r'$Price': revenue.amount,
-            r'$CurrName': revenue.currency,
-            if (revenue.productId != null) r'$ProductId': revenue.productId,
-            if (revenue.orderId != null) r'$OrderId': revenue.orderId,
-            r'$Quantity': revenue.quantity,
+            'revenue_amount': revenue.amount,
+            'currency': revenue.currency,
+            if (revenue.productId != null) 'product_id': revenue.productId,
+            if (revenue.orderId != null) 'order_id': revenue.orderId,
+            'quantity': revenue.quantity,
             ...revenue.parameters,
           },
         ),
@@ -102,17 +105,17 @@ class OhosAnalyticsEngine extends BaseAnalyticsEngine {
         AnalyticsEvent(
           name: purchase.eventName,
           parameters: {
-            r'$Price': purchase.amount,
-            r'$CurrName': purchase.currency,
-            r'$ProductId': purchase.productId,
+            'revenue_amount': purchase.amount,
+            'currency': purchase.currency,
+            'product_id': purchase.productId,
             'platform': purchase.platform,
             if (purchase.transactionId != null)
               'transaction_id': purchase.transactionId,
-            if (purchase.orderId != null) r'$OrderId': purchase.orderId,
+            if (purchase.orderId != null) 'order_id': purchase.orderId,
             if (purchase.purchaseToken != null)
               'purchase_token': purchase.purchaseToken,
             'is_subscription': purchase.isSubscription,
-            r'$Quantity': purchase.quantity,
+            'quantity': purchase.quantity,
             ...purchase.parameters,
           },
         ),
@@ -127,11 +130,11 @@ class OhosAnalyticsEngine extends BaseAnalyticsEngine {
     return safeExecute('logAdRevenue', () async {
       return logEvent(
         AnalyticsEvent(
-          name: r'$AdImpression',
+          name: 'ad_impression',
           parameters: {
             'mediation_source': revenue.mediationSource,
-            r'$CurrName': revenue.currency,
-            r'$Price': revenue.amount,
+            'currency': revenue.currency,
+            'amount': revenue.amount,
             if (revenue.adUnitId != null) 'ad_unit_id': revenue.adUnitId,
             if (revenue.network != null) 'network': revenue.network,
             if (revenue.placement != null) 'placement': revenue.placement,
@@ -157,9 +160,24 @@ class OhosAnalyticsEngine extends BaseAnalyticsEngine {
   Future<AnalyticsOperationResult> handlePushNotification(
     Map<String, Object?> payload,
   ) async {
-    return const AnalyticsOperationSkipped(
-      reason: 'Handled automatically by Huawei Push Kit / HiAnalytics',
-    );
+    return safeExecute('handlePushNotification', () async {
+      final deepLinkUrl = payload['deep_link']?.toString() ??
+          payload['url']?.toString() ??
+          payload['uri']?.toString();
+      if (deepLinkUrl != null && deepLinkUrl.isNotEmpty) {
+        emitDeepLink(
+          AnalyticsDeepLinkData(
+            provider: AnalyticsProvider.ohos,
+            status: 'found',
+            isDeferred: false,
+            uri: Uri.tryParse(deepLinkUrl),
+            deepLinkValue: deepLinkUrl,
+            rawData: payload,
+          ),
+        );
+      }
+      return const AnalyticsOperationAccepted();
+    });
   }
 
   @override
@@ -167,13 +185,8 @@ class OhosAnalyticsEngine extends BaseAnalyticsEngine {
     AnalyticsPrivacySettings settings,
   ) async {
     return safeExecute('setPrivacySettings', () async {
-      _logger.d('OhosAnalyticsEngine: setPrivacySettings: tracking=${settings.trackingAllowed}');
+      _logger.d('OhosAnalyticsEngine: setTrackingEnabled(${settings.trackingAllowed})');
       await _adapter.setTrackingEnabled(settings.trackingAllowed);
-      if (settings.advertisingIdCollectionAllowed != null) {
-        await _adapter.setCollectAdsIdEnabled(
-          settings.advertisingIdCollectionAllowed!,
-        );
-      }
       return const AnalyticsOperationAccepted();
     });
   }
@@ -190,5 +203,48 @@ class OhosAnalyticsEngine extends BaseAnalyticsEngine {
     state = AnalyticsEngineState.disposing;
     await _adapter.dispose();
     await super.dispose();
+  }
+
+  Future<dynamic> _handleNativeMethodCall(MethodCall call) async {
+    _logger.d('OhosAnalyticsEngine: native callback: ${call.method}');
+    switch (call.method) {
+      case 'onDeepLink':
+        final args = call.arguments is Map
+            ? Map<String, Object?>.from(call.arguments as Map)
+            : <String, Object?>{'raw': call.arguments};
+        final uriStr = args['url']?.toString() ?? args['uri']?.toString();
+        emitDeepLink(
+          AnalyticsDeepLinkData(
+            provider: AnalyticsProvider.ohos,
+            status: 'found',
+            isDeferred: args['isDeferred'] == true,
+            uri: uriStr != null ? Uri.tryParse(uriStr) : null,
+            deepLinkValue: args['value']?.toString(),
+            rawData: args,
+          ),
+        );
+        return true;
+
+      case 'onAttribution':
+        final args = call.arguments is Map
+            ? Map<String, Object?>.from(call.arguments as Map)
+            : <String, Object?>{'raw': call.arguments};
+        emitAttribution(
+          AnalyticsAttributionData(
+            provider: AnalyticsProvider.ohos,
+            status: args['status']?.toString() ?? 'success',
+            isOrganic: args['isOrganic'] == true,
+            isFirstLaunch: args['isFirstLaunch'] == true,
+            mediaSource: args['mediaSource']?.toString(),
+            campaign: args['campaign']?.toString(),
+            campaignId: args['campaignId']?.toString(),
+            rawData: args,
+          ),
+        );
+        return true;
+
+      default:
+        return null;
+    }
   }
 }

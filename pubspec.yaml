@@ -1,6 +1,7 @@
 name: analytics_ohos
-description: "OpenHarmony / HarmonyOS NEXT Analytics Engine (Huawei HiAnalytics & S2S REST)"
+description: "OpenHarmony / HarmonyOS NEXT Analytics Kit integration module"
 version: 1.0.0
+publish_to: none
 
 environment:
   sdk: ">=3.8.1 <4.0.0"
@@ -8,11 +9,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  core:
   analytics_core:
     path: ../analytics_core
-  logger: ^2.5.0
-  huawei_analytics: ^6.12.0+302
+  logger: ^2.4.0
 
 dev_dependencies:
   flutter_test:
