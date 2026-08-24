@@ -12,6 +12,7 @@ dependencies:
   analytics_core:
     path: ../analytics_core
   logger: ^2.5.0
+  huawei_analytics: ^6.12.0+302
 
 dev_dependencies:
   flutter_test:

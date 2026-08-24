@@ -1,32 +1,34 @@
 import 'package:flutter/foundation.dart';
 
-/// Configuration options for OpenHarmony / HarmonyOS NEXT Analytics Engine.
+/// Configuration options for Huawei / OpenHarmony Analytics Engine.
 @immutable
 final class OhosAnalyticsConfig {
   const OhosAnalyticsConfig({
     this.appId,
-    this.endpointUrl,
+    this.routePolicy,
     this.isDebug = false,
     this.reportPolicies = const {},
     this.customParameters = const {},
   });
 
   final String? appId;
-  final String? endpointUrl;
+
+  /// Data routing policy: 'CN' (China), 'DE' (Germany), 'SG' (Singapore), 'RU' (Russia).
+  final String? routePolicy;
   final bool isDebug;
   final Map<String, Object?> reportPolicies;
   final Map<String, Object?> customParameters;
 
   OhosAnalyticsConfig copyWith({
     String? appId,
-    String? endpointUrl,
+    String? routePolicy,
     bool? isDebug,
     Map<String, Object?>? reportPolicies,
     Map<String, Object?>? customParameters,
   }) {
     return OhosAnalyticsConfig(
       appId: appId ?? this.appId,
-      endpointUrl: endpointUrl ?? this.endpointUrl,
+      routePolicy: routePolicy ?? this.routePolicy,
       isDebug: isDebug ?? this.isDebug,
       reportPolicies: reportPolicies ?? this.reportPolicies,
       customParameters: customParameters ?? this.customParameters,
@@ -39,7 +41,7 @@ final class OhosAnalyticsConfig {
       other is OhosAnalyticsConfig &&
           runtimeType == other.runtimeType &&
           appId == other.appId &&
-          endpointUrl == other.endpointUrl &&
+          routePolicy == other.routePolicy &&
           isDebug == other.isDebug &&
           mapEquals(reportPolicies, other.reportPolicies) &&
           mapEquals(customParameters, other.customParameters);
@@ -47,7 +49,7 @@ final class OhosAnalyticsConfig {
   @override
   int get hashCode => Object.hash(
         appId,
-        endpointUrl,
+        routePolicy,
         isDebug,
         Object.hashAll(reportPolicies.keys),
         Object.hashAll(reportPolicies.values),
@@ -57,5 +59,5 @@ final class OhosAnalyticsConfig {
 
   @override
   String toString() =>
-      'OhosAnalyticsConfig(appId: $appId, endpointUrl: $endpointUrl, isDebug: $isDebug)';
+      'OhosAnalyticsConfig(appId: $appId, routePolicy: $routePolicy, isDebug: $isDebug)';
 }
