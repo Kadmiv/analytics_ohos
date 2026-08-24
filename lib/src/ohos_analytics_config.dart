@@ -4,35 +4,52 @@ import 'package:flutter/foundation.dart';
 @immutable
 final class OhosAnalyticsConfig {
   const OhosAnalyticsConfig({
-    this.channelName = 'com.ideas_proj/analytics_ohos',
-    this.appId,
-    this.endpointUrl,
-    this.isDebug = false,
-    this.reportPolicies = const {},
+    required this.ohosKey,
+    this.androidKey = '',
+    this.iosKey = '',
+    this.channel = 'openharmony',
+    this.logEnabled = false,
+    this.encryptEnabled = false,
+    this.sessionContinueMillis = 30000,
+    this.catchUncaughtExceptions = true,
+    this.pageCollectionMode = 'AUTO',
     this.customParameters = const {},
   });
 
-  final String channelName;
-  final String? appId;
-  final String? endpointUrl;
-  final bool isDebug;
-  final Map<String, Object?> reportPolicies;
+  final String ohosKey;
+  final String androidKey;
+  final String iosKey;
+  final String channel;
+  final bool logEnabled;
+  final bool encryptEnabled;
+  final int sessionContinueMillis;
+  final bool catchUncaughtExceptions;
+  final String pageCollectionMode;
   final Map<String, Object?> customParameters;
 
   OhosAnalyticsConfig copyWith({
-    String? channelName,
-    String? appId,
-    String? endpointUrl,
-    bool? isDebug,
-    Map<String, Object?>? reportPolicies,
+    String? ohosKey,
+    String? androidKey,
+    String? iosKey,
+    String? channel,
+    bool? logEnabled,
+    bool? encryptEnabled,
+    int? sessionContinueMillis,
+    bool? catchUncaughtExceptions,
+    String? pageCollectionMode,
     Map<String, Object?>? customParameters,
   }) {
     return OhosAnalyticsConfig(
-      channelName: channelName ?? this.channelName,
-      appId: appId ?? this.appId,
-      endpointUrl: endpointUrl ?? this.endpointUrl,
-      isDebug: isDebug ?? this.isDebug,
-      reportPolicies: reportPolicies ?? this.reportPolicies,
+      ohosKey: ohosKey ?? this.ohosKey,
+      androidKey: androidKey ?? this.androidKey,
+      iosKey: iosKey ?? this.iosKey,
+      channel: channel ?? this.channel,
+      logEnabled: logEnabled ?? this.logEnabled,
+      encryptEnabled: encryptEnabled ?? this.encryptEnabled,
+      sessionContinueMillis: sessionContinueMillis ?? this.sessionContinueMillis,
+      catchUncaughtExceptions:
+          catchUncaughtExceptions ?? this.catchUncaughtExceptions,
+      pageCollectionMode: pageCollectionMode ?? this.pageCollectionMode,
       customParameters: customParameters ?? this.customParameters,
     );
   }
@@ -42,26 +59,33 @@ final class OhosAnalyticsConfig {
       identical(this, other) ||
       other is OhosAnalyticsConfig &&
           runtimeType == other.runtimeType &&
-          channelName == other.channelName &&
-          appId == other.appId &&
-          endpointUrl == other.endpointUrl &&
-          isDebug == other.isDebug &&
-          mapEquals(reportPolicies, other.reportPolicies) &&
+          ohosKey == other.ohosKey &&
+          androidKey == other.androidKey &&
+          iosKey == other.iosKey &&
+          channel == other.channel &&
+          logEnabled == other.logEnabled &&
+          encryptEnabled == other.encryptEnabled &&
+          sessionContinueMillis == other.sessionContinueMillis &&
+          catchUncaughtExceptions == other.catchUncaughtExceptions &&
+          pageCollectionMode == other.pageCollectionMode &&
           mapEquals(customParameters, other.customParameters);
 
   @override
   int get hashCode => Object.hash(
-        channelName,
-        appId,
-        endpointUrl,
-        isDebug,
-        Object.hashAll(reportPolicies.keys),
-        Object.hashAll(reportPolicies.values),
+        ohosKey,
+        androidKey,
+        iosKey,
+        channel,
+        logEnabled,
+        encryptEnabled,
+        sessionContinueMillis,
+        catchUncaughtExceptions,
+        pageCollectionMode,
         Object.hashAll(customParameters.keys),
         Object.hashAll(customParameters.values),
       );
 
   @override
   String toString() =>
-      'OhosAnalyticsConfig(channel: $channelName, appId: $appId, isDebug: $isDebug)';
+      'OhosAnalyticsConfig(ohosKey: $ohosKey, channel: $channel, logEnabled: $logEnabled)';
 }

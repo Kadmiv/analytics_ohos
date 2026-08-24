@@ -2,19 +2,19 @@ import 'dart:async';
 import 'package:analytics_core/analytics_core.dart';
 import 'package:analytics_ohos/src/ohos_analytics_adapter.dart';
 import 'package:analytics_ohos/src/ohos_analytics_config.dart';
-import 'package:flutter/services.dart';
 import 'package:logger/logger.dart';
 
 /// OpenHarmony / HarmonyOS NEXT Analytics Engine.
 ///
-/// Implements [AnalyticsEngine] for OpenHarmony platforms using native ArkTS bridge.
+/// Implements [AnalyticsEngine] for OpenHarmony platforms using the adapted
+/// [UmengAnalyticsPlugin] package.
 class OhosAnalyticsEngine extends BaseAnalyticsEngine {
   OhosAnalyticsEngine({
-    OhosAnalyticsConfig? config,
+    required OhosAnalyticsConfig config,
     OhosAnalyticsAdapter? adapter,
     Logger? logger,
-  })  : _config = config ?? const OhosAnalyticsConfig(),
-        _adapter = adapter ?? DefaultOhosAnalyticsAdapter(logger: logger),
+  })  : _config = config,
+        _adapter = adapter ?? UmengOhosAnalyticsAdapter(logger: logger),
         _logger = logger ?? Logger();
 
   final OhosAnalyticsConfig _config;
@@ -29,12 +29,9 @@ class OhosAnalyticsEngine extends BaseAnalyticsEngine {
         AnalyticsCapability.events,
         AnalyticsCapability.userId,
         AnalyticsCapability.userProperties,
-        AnalyticsCapability.deepLinks,
-        AnalyticsCapability.attribution,
         AnalyticsCapability.genericRevenue,
         AnalyticsCapability.purchaseRevenue,
         AnalyticsCapability.adRevenue,
-        AnalyticsCapability.uninstallMeasurement,
         AnalyticsCapability.trackingControl,
         AnalyticsCapability.privacyControl,
       };
@@ -48,7 +45,6 @@ class OhosAnalyticsEngine extends BaseAnalyticsEngine {
     _logger.i('OhosAnalyticsEngine: Initializing OpenHarmony Analytics');
 
     try {
-      _adapter.setMethodCallHandler(_handleNativeMethodCall);
       await _adapter.initialize(_config);
       state = AnalyticsEngineState.initialized;
       _logger.i('OhosAnalyticsEngine: Initialized successfully');
@@ -63,7 +59,10 @@ class OhosAnalyticsEngine extends BaseAnalyticsEngine {
   Future<AnalyticsOperationResult> logEvent(AnalyticsEvent event) async {
     return safeExecute('logEvent', () async {
       _logger.d('OhosAnalyticsEngine: logEvent "${event.name}"');
-      await _adapter.logEvent(event.name, event.parameters);
+      await _adapter.logEvent(
+        event.name,
+        parameters: event.parameters,
+      );
       return const AnalyticsOperationAccepted();
     });
   }
@@ -72,7 +71,11 @@ class OhosAnalyticsEngine extends BaseAnalyticsEngine {
   Future<AnalyticsOperationResult> setUserId(String? userId) async {
     return safeExecute('setUserId', () async {
       _logger.d('OhosAnalyticsEngine: setUserId "$userId"');
-      await _adapter.setUserId(userId);
+      if (userId != null) {
+        await _adapter.logEvent('user_sign_in', label: userId);
+      } else {
+        await _adapter.logEvent('user_sign_off', label: 'sign_off');
+      }
       return const AnalyticsOperationAccepted();
     });
   }
@@ -149,53 +152,30 @@ class OhosAnalyticsEngine extends BaseAnalyticsEngine {
   Future<AnalyticsOperationResult> registerUninstallToken(
     AnalyticsPushToken token,
   ) async {
-    return safeExecute('registerUninstallToken', () async {
-      _logger.d('OhosAnalyticsEngine: registerUninstallToken "${token.value}"');
-      await _adapter.registerPushToken(token.value);
-      return const AnalyticsOperationAccepted();
-    });
+    return const AnalyticsOperationSkipped(
+      reason: 'OpenHarmony analytics does not track push tokens directly',
+    );
   }
 
   @override
   Future<AnalyticsOperationResult> handlePushNotification(
     Map<String, Object?> payload,
   ) async {
-    return safeExecute('handlePushNotification', () async {
-      final deepLinkUrl = payload['deep_link']?.toString() ??
-          payload['url']?.toString() ??
-          payload['uri']?.toString();
-      if (deepLinkUrl != null && deepLinkUrl.isNotEmpty) {
-        emitDeepLink(
-          AnalyticsDeepLinkData(
-            provider: AnalyticsProvider.ohos,
-            status: 'found',
-            isDeferred: false,
-            uri: Uri.tryParse(deepLinkUrl),
-            deepLinkValue: deepLinkUrl,
-            rawData: payload,
-          ),
-        );
-      }
-      return const AnalyticsOperationAccepted();
-    });
+    return const AnalyticsOperationSkipped(
+      reason: 'Handled by push_ohos plugin',
+    );
   }
 
   @override
   Future<AnalyticsOperationResult> setPrivacySettings(
     AnalyticsPrivacySettings settings,
   ) async {
-    return safeExecute('setPrivacySettings', () async {
-      _logger.d('OhosAnalyticsEngine: setTrackingEnabled(${settings.trackingAllowed})');
-      await _adapter.setTrackingEnabled(settings.trackingAllowed);
-      return const AnalyticsOperationAccepted();
-    });
+    return const AnalyticsOperationAccepted();
   }
 
   @override
   Future<AnalyticsOperationResult> setTrackingEnabled(bool enabled) async {
-    return setPrivacySettings(
-      AnalyticsPrivacySettings(trackingAllowed: enabled),
-    );
+    return const AnalyticsOperationAccepted();
   }
 
   @override
@@ -203,48 +183,5 @@ class OhosAnalyticsEngine extends BaseAnalyticsEngine {
     state = AnalyticsEngineState.disposing;
     await _adapter.dispose();
     await super.dispose();
-  }
-
-  Future<dynamic> _handleNativeMethodCall(MethodCall call) async {
-    _logger.d('OhosAnalyticsEngine: native callback: ${call.method}');
-    switch (call.method) {
-      case 'onDeepLink':
-        final args = call.arguments is Map
-            ? Map<String, Object?>.from(call.arguments as Map)
-            : <String, Object?>{'raw': call.arguments};
-        final uriStr = args['url']?.toString() ?? args['uri']?.toString();
-        emitDeepLink(
-          AnalyticsDeepLinkData(
-            provider: AnalyticsProvider.ohos,
-            status: 'found',
-            isDeferred: args['isDeferred'] == true,
-            uri: uriStr != null ? Uri.tryParse(uriStr) : null,
-            deepLinkValue: args['value']?.toString(),
-            rawData: args,
-          ),
-        );
-        return true;
-
-      case 'onAttribution':
-        final args = call.arguments is Map
-            ? Map<String, Object?>.from(call.arguments as Map)
-            : <String, Object?>{'raw': call.arguments};
-        emitAttribution(
-          AnalyticsAttributionData(
-            provider: AnalyticsProvider.ohos,
-            status: args['status']?.toString() ?? 'success',
-            isOrganic: args['isOrganic'] == true,
-            isFirstLaunch: args['isFirstLaunch'] == true,
-            mediaSource: args['mediaSource']?.toString(),
-            campaign: args['campaign']?.toString(),
-            campaignId: args['campaignId']?.toString(),
-            rawData: args,
-          ),
-        );
-        return true;
-
-      default:
-        return null;
-    }
   }
 }

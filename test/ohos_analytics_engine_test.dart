@@ -1,60 +1,48 @@
 import 'package:analytics_ohos/analytics_ohos.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class FakeOhosAnalyticsAdapter implements OhosAnalyticsAdapter {
   OhosAnalyticsConfig? lastConfig;
-  final List<MapEntry<String, Map<String, Object?>>> loggedEvents = [];
-  String? userId;
-  final Map<String, String?> userProperties = {};
-  bool? trackingEnabled;
-  String? pushToken;
-  Future<dynamic> Function(MethodCall call)? methodCallHandler;
+  final List<Map<String, dynamic>> loggedEvents = [];
+  final List<String> pageStarts = [];
+  final List<String> pageEnds = [];
   bool shouldThrowOnInit = false;
   bool disposed = false;
 
   @override
   Future<void> initialize(OhosAnalyticsConfig config) async {
     if (shouldThrowOnInit) {
-      throw Exception('HarmonyOS init failed');
+      throw Exception('OpenHarmony Analytics init failed');
     }
     lastConfig = config;
   }
 
   @override
-  Future<void> logEvent(String name, Map<String, Object?> parameters) async {
-    loggedEvents.add(MapEntry(name, parameters));
+  Future<void> logEvent(
+    String name, {
+    String? label,
+    Map<String, Object?>? parameters,
+  }) async {
+    loggedEvents.add({
+      'name': name,
+      'label': label,
+      'parameters': parameters,
+    });
   }
 
   @override
-  Future<void> setUserId(String? userId) async {
-    this.userId = userId;
+  Future<void> logPageStart(String viewName) async {
+    pageStarts.add(viewName);
   }
 
   @override
-  Future<void> setUserProperty(String name, String? value) async {
-    userProperties[name] = value;
-  }
-
-  @override
-  Future<void> setTrackingEnabled(bool enabled) async {
-    trackingEnabled = enabled;
-  }
-
-  @override
-  Future<void> registerPushToken(String token) async {
-    pushToken = token;
-  }
-
-  @override
-  void setMethodCallHandler(Future<dynamic> Function(MethodCall call)? handler) {
-    methodCallHandler = handler;
+  Future<void> logPageEnd(String viewName) async {
+    pageEnds.add(viewName);
   }
 
   @override
   Future<void> dispose() async {
     disposed = true;
-    methodCallHandler = null;
   }
 }
 
@@ -67,9 +55,9 @@ void main() {
     setUp(() {
       adapter = FakeOhosAnalyticsAdapter();
       config = const OhosAnalyticsConfig(
-        appId: 'com.example.ohos_app',
-        endpointUrl: 'https://analytics.harmonyos.com',
-        isDebug: true,
+        ohosKey: 'ohos_app_key_123',
+        channel: 'huawei_appgallery',
+        logEnabled: true,
       );
       engine = OhosAnalyticsEngine(config: config, adapter: adapter);
     });
@@ -86,6 +74,7 @@ void main() {
       await engine.initialize();
       expect(engine.isInitialized, isTrue);
       expect(adapter.lastConfig, equals(config));
+      expect(adapter.lastConfig?.ohosKey, equals('ohos_app_key_123'));
     });
 
     test('initialization failure sets state to failed and throws', () async {
@@ -102,14 +91,20 @@ void main() {
 
       expect(res.isAccepted, isTrue);
       expect(adapter.loggedEvents.length, equals(1));
-      expect(adapter.loggedEvents.first.key, equals('level_complete'));
-      expect(adapter.loggedEvents.first.value['level'], equals(3));
+      expect(adapter.loggedEvents.first['name'], equals('level_complete'));
+      expect(adapter.loggedEvents.first['parameters'], equals({'level': 3}));
     });
 
-    test('setUserId updates adapter', () async {
+    test('setUserId logs sign in / sign off event', () async {
       await engine.initialize();
       await engine.setUserId('harmony_user_1');
-      expect(adapter.userId, equals('harmony_user_1'));
+      expect(adapter.loggedEvents.length, equals(1));
+      expect(adapter.loggedEvents.first['name'], equals('user_sign_in'));
+      expect(adapter.loggedEvents.first['label'], equals('harmony_user_1'));
+
+      await engine.setUserId(null);
+      expect(adapter.loggedEvents.length, equals(2));
+      expect(adapter.loggedEvents[1]['name'], equals('user_sign_off'));
     });
 
     test('logRevenue maps fields and passes to adapter', () async {
@@ -125,10 +120,11 @@ void main() {
 
       expect(res.isAccepted, isTrue);
       final logged = adapter.loggedEvents.first;
-      expect(logged.key, equals('coin_purchase'));
-      expect(logged.value['revenue_amount'], equals(5.99));
-      expect(logged.value['currency'], equals('CNY'));
-      expect(logged.value['product_id'], equals('coins_500'));
+      expect(logged['name'], equals('coin_purchase'));
+      final params = logged['parameters'] as Map<String, Object?>;
+      expect(params['revenue_amount'], equals(5.99));
+      expect(params['currency'], equals('CNY'));
+      expect(params['product_id'], equals('coins_500'));
     });
 
     test('logPurchase maps fields correctly', () async {
@@ -147,10 +143,11 @@ void main() {
 
       expect(res.isAccepted, isTrue);
       final logged = adapter.loggedEvents.first;
-      expect(logged.key, equals('purchase_complete'));
-      expect(logged.value['revenue_amount'], equals(29.99));
-      expect(logged.value['transaction_id'], equals('tx_huawei_001'));
-      expect(logged.value['purchase_token'], equals('token_hms_999'));
+      expect(logged['name'], equals('purchase_complete'));
+      final params = logged['parameters'] as Map<String, Object?>;
+      expect(params['revenue_amount'], equals(29.99));
+      expect(params['transaction_id'], equals('tx_huawei_001'));
+      expect(params['purchase_token'], equals('token_hms_999'));
     });
 
     test('logAdRevenue logs ad_impression', () async {
@@ -166,85 +163,10 @@ void main() {
 
       expect(res.isAccepted, isTrue);
       final logged = adapter.loggedEvents.first;
-      expect(logged.key, equals('ad_impression'));
-      expect(logged.value['mediation_source'], equals('huawei_ads'));
-      expect(logged.value['amount'], equals(0.15));
-    });
-
-    test('registerUninstallToken and privacy settings', () async {
-      await engine.initialize();
-
-      await engine.registerUninstallToken(
-        const AnalyticsPushToken(
-          value: 'ohos_push_token_xyz',
-          type: AnalyticsPushTokenType.pushKit,
-        ),
-      );
-      expect(adapter.pushToken, equals('ohos_push_token_xyz'));
-
-      await engine.setTrackingEnabled(false);
-      expect(adapter.trackingEnabled, isFalse);
-
-      await engine.setTrackingEnabled(true);
-      expect(adapter.trackingEnabled, isTrue);
-    });
-
-    test('handles push notification and emits deep link', () async {
-      await engine.initialize();
-
-      final deepLinks = <AnalyticsDeepLinkData>[];
-      final sub = engine.deepLinks.listen(deepLinks.add);
-
-      await engine.handlePushNotification({
-        'deep_link': 'myapp://promo/123',
-        'title': 'New Bonus',
-      });
-
-      await pumpEventQueue();
-
-      expect(deepLinks.length, equals(1));
-      expect(deepLinks.first.deepLinkValue, equals('myapp://promo/123'));
-      expect(engine.latestDeepLink?.deepLinkValue, equals('myapp://promo/123'));
-
-      await sub.cancel();
-    });
-
-    test('native method call handler emits deep link and attribution', () async {
-      await engine.initialize();
-
-      final deepLinks = <AnalyticsDeepLinkData>[];
-      final attributions = <AnalyticsAttributionData>[];
-
-      final sub1 = engine.deepLinks.listen(deepLinks.add);
-      final sub2 = engine.attribution.listen(attributions.add);
-
-      await adapter.methodCallHandler!(
-        const MethodCall('onDeepLink', {
-          'url': 'myapp://category/books',
-          'value': 'books',
-          'isDeferred': false,
-        }),
-      );
-
-      await adapter.methodCallHandler!(
-        const MethodCall('onAttribution', {
-          'status': 'success',
-          'isOrganic': true,
-          'mediaSource': 'appgallery',
-          'campaign': 'launch_promo',
-        }),
-      );
-
-      await pumpEventQueue();
-
-      expect(deepLinks.length, equals(1));
-      expect(deepLinks.first.deepLinkValue, equals('books'));
-      expect(attributions.length, equals(1));
-      expect(attributions.first.mediaSource, equals('appgallery'));
-      expect(attributions.first.campaign, equals('launch_promo'));
-
-      await sub1.cancel();
-      await sub2.cancel();
+      expect(logged['name'], equals('ad_impression'));
+      final params = logged['parameters'] as Map<String, Object?>;
+      expect(params['mediation_source'], equals('huawei_ads'));
+      expect(params['amount'], equals(0.15));
     });
 
     test('dispose marks engine as disposed and disposes adapter', () async {
