@@ -1,4 +1,4 @@
-# melos_managed_dependency_overrides: analytics_core,app_version,core,core_utils,design_system_app,design_system_core,form,network,shared
+# melos_managed_dependency_overrides: analytics_core,app_version,core,core_utils,design_system_app,design_system_core,form,network,shared,subscription_core
 dependency_overrides:
   analytics_core:
     path: ../analytics_core
@@ -18,6 +18,8 @@ dependency_overrides:
     path: ../network
   shared:
     path: ../../flutter_never_have_i_ever/features/shared
+  subscription_core:
+    path: ../subscription_core
   umeng_analytics_plugin:
     git:
       url: https://gitcode.com/CPF-Flutter/fluttertpc_umeng_analytics_plugin.git
